@@ -1,0 +1,16 @@
+services:
+  web:
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/rails
+      - bundle:/usr/local/bundle
+    environment:
+      RAILS_ENV: development
+    tty: true
+    stdin_open: true
+
+volumes:
+  bundle:
