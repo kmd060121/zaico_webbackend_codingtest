@@ -26,95 +26,110 @@
 
   <div style="background: #f9f9f9; padding: 15px; border-radius: 5px; font-size: 14px;">
     <p><strong>API エンドポイント:</strong></p>
-    <code>/api/inventories/<%= @inventory.id %>/logical_quantities.json?from=YYYY-MM-DD&to=YYYY-MM-DD</code>
+    <code>/api/inventories/<%= @inventory.id %>/logical_quantities.json?company_id=<%= @inventory.company_id %>&from=YYYY-MM-DD&to=YYYY-MM-DD</code>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-  const inventoryId = <%= @inventory.id %>;
-  let chart = null;
+  (function() {
+    const inventoryId = <%= @inventory.id %>;
+    const companyId = <%= @inventory.company_id %>;
+    let chart = null;
 
-  function loadGraph() {
-    const fromDate = document.getElementById('from-date').value;
-    const toDate = document.getElementById('to-date').value;
-    const apiUrl = `/api/inventories/${inventoryId}/logical_quantities.json?from=${fromDate}&to=${toDate}`;
+    function loadGraph() {
+      const fromDate = document.getElementById('from-date').value;
+      const toDate = document.getElementById('to-date').value;
+      const apiUrl = `/api/inventories/${inventoryId}/logical_quantities.json?company_id=${companyId}&from=${fromDate}&to=${toDate}`;
 
-    const responseTimeDiv = document.getElementById('response-time');
-    responseTimeDiv.textContent = 'Loading...';
+      const responseTimeDiv = document.getElementById('response-time');
+      responseTimeDiv.textContent = 'Loading...';
 
-    const startTime = performance.now();
+      const startTime = performance.now();
 
-    fetch(apiUrl)
-      .then(response => {
-        const endTime = performance.now();
-        const responseTime = (endTime - startTime).toFixed(2);
+      fetch(apiUrl)
+        .then(response => {
+          const endTime = performance.now();
+          const responseTime = (endTime - startTime).toFixed(2);
 
-        return response.json().then(data => ({ data, responseTime }));
-      })
-      .then(({ data, responseTime }) => {
-        responseTimeDiv.innerHTML = `<strong>API レスポンスタイム:</strong> ${responseTime} ms`;
+          // レスポンスステータスを確認
+          if (!response.ok) {
+            return response.text().then(text => {
+              console.error('API Error Status:', response.status);
+              console.error('API Error Response:', text);
+              throw new Error(`API returned status ${response.status}: ${text.substring(0, 100)}`);
+            });
+          }
 
-        const labels = data.points.map(point => point.date);
-        const values = data.points.map(point => point.logical_quantity);
+          return response.json().then(data => ({ data, responseTime }));
+        })
+        .then(({ data, responseTime }) => {
+          responseTimeDiv.innerHTML = `<strong>API レスポンスタイム:</strong> ${responseTime} ms`;
 
-        const ctx = document.getElementById('logical-quantity-chart');
+          const labels = data.points.map(point => point.date);
+          const values = data.points.map(point => point.logical_quantity);
 
-        if (chart) {
-          chart.destroy();
-        }
+          const ctx = document.getElementById('logical-quantity-chart');
 
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: '予定フリー在庫数',
-              data: values,
-              borderColor: 'rgb(75, 192, 192)',
-              backgroundColor: 'rgba(75, 192, 192, 0.1)',
-              tension: 0.1,
-              fill: true
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-              title: {
-                display: true,
-                text: `予定フリー在庫数の推移 (在庫ID: ${inventoryId})`
-              },
-              legend: {
-                display: true
-              }
+          if (chart) {
+            chart.destroy();
+          }
+
+          chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: '予定フリー在庫数',
+                data: values,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+              }]
             },
-            scales: {
-              y: {
-                beginAtZero: true,
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
                 title: {
                   display: true,
-                  text: '数量'
+                  text: `予定フリー在庫数の推移 (在庫ID: ${inventoryId})`
+                },
+                legend: {
+                  display: true
                 }
               },
-              x: {
-                title: {
-                  display: true,
-                  text: '日付'
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: '数量'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: '日付'
+                  }
                 }
               }
             }
-          }
+          });
+        })
+        .catch(error => {
+          console.error('Error loading graph:', error);
+          responseTimeDiv.innerHTML = `<strong style="color: red;">エラー:</strong> ${error.message}`;
         });
-      })
-      .catch(error => {
-        console.error('Error loading graph:', error);
-        responseTimeDiv.innerHTML = `<strong style="color: red;">エラー:</strong> ${error.message}`;
-      });
-  }
+    }
 
-  document.getElementById('load-graph').addEventListener('click', loadGraph);
+    const loadButton = document.getElementById('load-graph');
+    if (loadButton) {
+      loadButton.addEventListener('click', loadGraph);
+    }
 
-  // ページロード時にグラフを表示
-  window.addEventListener('DOMContentLoaded', loadGraph);
+    // 即座にグラフを読み込む
+    loadGraph();
+  })();
 </script>
